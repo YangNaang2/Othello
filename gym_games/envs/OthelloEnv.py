@@ -45,10 +45,16 @@ class OthelloEnv(gym.Env):
 
     ## Reward
     
+    return 0
+    invalid action : -100
+    the sum of discs will be provided in information 
+
     ## Information
     step() and reset() function return a dict with the following keys:
     - turn  : returns b,w 
     - autoplay :  If autoplay is false, input will be given by user interaction
+    - action : returns valid action
+    - blackSum/whiteSum : score 
 
     ## metadata
     In metadata, you can set the following keys:
@@ -87,7 +93,6 @@ class OthelloEnv(gym.Env):
         self.board[28] = 2
         self.board[35] = 2
         self.Curplayer = 1
-        self.done = False
         self.blackSum = 2
         self.whiteSum = 2
 
@@ -156,7 +161,6 @@ class OthelloEnv(gym.Env):
             return True
 
     def close(self):
-        self.coroutine.cancel()
         pygame.quit()
         return super().close()
 
@@ -186,6 +190,8 @@ class OthelloEnv(gym.Env):
         return False
     
     def capture_action(self, a):
+        blackSumold = self.blackSum
+        whiteumold = self.whiteSum
         directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]
         row, col = np.unravel_index(a, (8,8))
         for dr, dc in directions:
@@ -212,6 +218,14 @@ class OthelloEnv(gym.Env):
                         break
                     else:
                         break
+        if(self.Curplayer == 1):
+            if(blackSumold != self.blackSum):
+                self.board[a] = self.Curplayer
+                self.blackSum +=1     
+        else:
+            if(whiteumold != self.whiteSum):
+                self.board[a] = self.Curplayer
+                self.whiteSum +=1 
 
 
     def get_valid_actions(self):
@@ -237,17 +251,7 @@ class OthelloEnv(gym.Env):
         if(not actions):
             return ( self.board, 0, True , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
         elif(a in actions):
-            blackSumold = self.blackSum
-            whiteumold = self.whiteSum
             self.capture_action(a)
-            if(self.Curplayer == 1):
-                if(blackSumold != self.blackSum):
-                    self.board[a] = self.Curplayer
-                    self.blackSum +=1     
-            else:
-                if(whiteumold != self.whiteSum):
-                    self.board[a] = self.Curplayer
-                    self.whiteSum +=1     
             player = self.Curplayer
             self.Curplayer = 3 - self.Curplayer
             return ( self.board, 0, False , False, {'autoplay': self.metadata['autoplay'], 'turn':player, 'action' : self.get_valid_actions(), 'blackSum':self.blackSum,'whiteSum':self.whiteSum})
