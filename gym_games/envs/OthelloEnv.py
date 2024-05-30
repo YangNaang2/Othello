@@ -94,7 +94,7 @@ class OthelloEnv(gym.Env):
         if self.metadata['render_modes'] == "human":
             self._init_render_gui()
         self.render()
-        return ( self.board, 0, False , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer} )
+        return ( self.board, 0, False , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer , 'action' : self.get_valid_actions() , 'blackSum':self.blackSum,'whiteSum':self.whiteSum})
     
     def render(self):
         if self.metadata['render_modes'] == "human":
@@ -137,7 +137,7 @@ class OthelloEnv(gym.Env):
         self._render_text(f"B/W : {self.blackSum}/{self.whiteSum}",self.cell_size*8//2, self.cell_size*9)
 
         if(not self.metadata['autoplay']):
-            row  = self.MouseY//self.cell_size
+            row  = min(self.MouseY//self.cell_size, 8*8-1)
             col  = self.MouseX//self.cell_size
             a = 8*row+col
             if self.is_valid_action(a):
@@ -183,11 +183,8 @@ class OthelloEnv(gym.Env):
                         return True
                     else:
                         break
-
         return False
     
-
-
     def capture_action(self, a):
         directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]
         row, col = np.unravel_index(a, (8,8))
@@ -215,6 +212,15 @@ class OthelloEnv(gym.Env):
                         break
                     else:
                         break
+
+
+    def get_valid_actions(self):
+        actions = []
+        for i in range(0,8*8):
+            if(self.is_valid_action(i)):
+                actions.append(i)
+        return actions
+    
     def step(self, a):
         if(not self.metadata['autoplay']):
             while True:
@@ -223,32 +229,27 @@ class OthelloEnv(gym.Env):
                 self.MouseX , self.MouseY = pygame.mouse.get_pos()
                 self.render()
                 if(pygame.mouse.get_pressed()[0]):
-                    row  = self.MouseY//self.cell_size
+                    row  = min(self.MouseY//self.cell_size, 8*8-1)
                     col  = self.MouseX//self.cell_size
                     a = 8*row+col
-                    if self.is_valid_action(a):
-                        break
-
-        # 움직일 수 있는 돌 위치를 체크하여 반환하고, 
-        # 가치 함수를 지정해 반환하고
-        # 게임 종료 조건을 만들어야 한다.
-
-
-        blackSumold = self.blackSum
-        whiteumold = self.whiteSum
-        self.capture_action(a)
-        if(self.Curplayer == 1):
-            if(blackSumold != self.blackSum):
-                self.board[a] = self.Curplayer
-                self.blackSum +=1     
-        else:
-            if(whiteumold != self.whiteSum):
-                self.board[a] = self.Curplayer
-                self.whiteSum +=1     
-
-        player = self.Curplayer
-        if( self.Curplayer == 1) :
-            self.Curplayer = 2
-        else:
-            self.Curplayer = 1
-        return ( self.board, 0, False , False, {'autoplay': self.metadata['autoplay'], 'turn':player} )
+                    break
+        actions = self.get_valid_actions()
+        if(not actions):
+            return ( self.board, 0, True , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
+        elif(a in actions):
+            blackSumold = self.blackSum
+            whiteumold = self.whiteSum
+            self.capture_action(a)
+            if(self.Curplayer == 1):
+                if(blackSumold != self.blackSum):
+                    self.board[a] = self.Curplayer
+                    self.blackSum +=1     
+            else:
+                if(whiteumold != self.whiteSum):
+                    self.board[a] = self.Curplayer
+                    self.whiteSum +=1     
+            player = self.Curplayer
+            self.Curplayer = 3 - self.Curplayer
+            return ( self.board, 0, False , False, {'autoplay': self.metadata['autoplay'], 'turn':player, 'action' : self.get_valid_actions(), 'blackSum':self.blackSum,'whiteSum':self.whiteSum})
+        return ( self.board, -100, False , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
+       
