@@ -105,7 +105,6 @@ class OthelloEnv(gym.Env):
         if self.metadata['render_modes'] == "human":
             return self._render_gui()
 
-
     def _init_render_gui(self):
         if self.window_surface is None:
             pygame.init()
@@ -249,11 +248,20 @@ class OthelloEnv(gym.Env):
                     break
         actions = self.get_valid_actions()
         if(not actions):
-            return ( self.board, 0, True , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
+            reward = 0
+            if(self.Curplayer==1):
+                reward = self.blackSum 
+            else:
+                reward = self.whiteSum 
+            return ( self.board, reward, True , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
         elif(a in actions):
             self.capture_action(a)
             player = self.Curplayer
             self.Curplayer = 3 - self.Curplayer
-            return ( self.board, 0, False , False, {'autoplay': self.metadata['autoplay'], 'turn':player, 'action' : self.get_valid_actions(), 'blackSum':self.blackSum,'whiteSum':self.whiteSum})
+            actions = self.get_valid_actions()
+            done = False
+            if(not actions):
+                done = True
+            return ( self.board, 0, done , False, {'autoplay': self.metadata['autoplay'], 'turn':player, 'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum})
         return ( self.board, -100, False , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
        
