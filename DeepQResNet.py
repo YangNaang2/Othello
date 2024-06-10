@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import layers, models, optimizers, losses
+from tensorflow.keras import layers, models, optimizers, load_model
 from collections import deque
 import random
 import hashlib
@@ -103,10 +103,11 @@ class DQN:
         return valid_action[np.argmax(q_values[mask])]
     
     def load(self, name):
-        self.model.load_weights(name)
+        self.model = load_model(name)
+        self.target_model = load_model(name)
     
     def save(self, name):
-        self.model.save_weights(name)
+        self.model.save(name)
 
     def InsertBuffer(self, state, action, reward,next_states,done,valid_actions):
         self._InsertHashTable(state)
