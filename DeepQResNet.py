@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import layers, models, optimizers, load_model
+import tensorflow.keras as tfs
+from tensorflow.keras import layers, models, optimizers
 from collections import deque
 import random
 import hashlib
@@ -15,13 +16,27 @@ class DQN:
         self.model = self._build_model()
         self.target_model = self._build_model()
         self.update_target_model()
-        self.hashtable = [[{} for _ in range(10)] for _ in range(10)] 
+        self.hashtable = [[{} for _ in range(15)] for _ in range(15)] 
         self.maxBufferSize = replay_buffer_size
-        self.replay_buffer = deque(maxlen=self.maxBufferSize)
-    
+        self.replay_buffer = []
+
+    def load(self, name):
+        self.model.load_weights(name)
+        self.update_target_model()
+
+    def save(self, name):
+        self.target_model.save_weights(name)
+
     def _build_model(self):
-        inputs = layers.Input(shape=self.state_shape)
-        x = layers.Conv2D(64, kernel_size=7, strides=2, padding='same')(inputs)
+        state_input = layers.Input(shape=self.state_shape)
+        turn_input = layers.Input(shape=(1,), dtype='float32')
+        # turn_input을 3차원 텐서로 변환
+        turn_info = layers.RepeatVector(self.state_shape[0] * self.state_shape[1])(turn_input)
+        turn_info = layers.Reshape((self.state_shape[0], self.state_shape[1], 1))(turn_info)
+
+        # 상태 텐서와 턴 정보를 결합
+        combined_input = layers.Concatenate(axis=-1)([state_input, turn_info])
+        x = layers.Conv2D(64, kernel_size=7, strides=2, padding='same')(combined_input)
         x = layers.BatchNormalization()(x)
         x = layers.Activation('relu')(x)
         x = layers.MaxPooling2D(pool_size=3, strides=2, padding='same')(x)
@@ -43,7 +58,6 @@ class DQN:
             if i == 0:  # 첫 번째 블록에서만 채널 수가 변경되므로, 이를 맞추기 위해 1x1 Convolution 사용
                 shortcut = layers.Conv2D(128, kernel_size=1, padding='same')(shortcut)
                 shortcut = layers.BatchNormalization()(shortcut)
-            
             x = layers.Conv2D(128, kernel_size=3, padding='same')(x)
             x = layers.BatchNormalization()(x)
             x = layers.Activation('relu')(x)
@@ -56,7 +70,7 @@ class DQN:
         x = layers.GlobalAveragePooling2D()(x)
         outputs = layers.Dense(self.action_size, activation='linear')(x)
         
-        model = models.Model(inputs, outputs)
+        model = models.Model(inputs=[state_input, turn_input], outputs=outputs)
         model.compile(optimizer=optimizers.Adam(learning_rate=self.lr), loss='mse')
         return model
     
@@ -66,27 +80,32 @@ class DQN:
     def train(self):
         if len(self.replay_buffer) < self.batch_size:
             return
-        minibatch = [self.replay_buffer.popleft() for _ in range(self.batch_size)]
-        minibatch = random.sample(minibatch, self.batch_size)
+        minibatch_indices = random.sample(range(len(self.replay_buffer)), self.batch_size)
+        minibatch = [self.replay_buffer[i] for i in minibatch_indices]
         states = np.array([i[0] for i in minibatch])
         actions = np.array([i[1] for i in minibatch])
         rewards = np.array([i[2] for i in minibatch])
         next_states = np.array([i[3] for i in minibatch])
         dones = np.array([i[4] for i in minibatch])
         valid_actions = [i[5] for i in minibatch]
-        target = self.model.predict(next_states.reshape(-1,8,8,1),verbose=None)
-        target_next = self.target_model.predict(next_states.reshape(-1,8,8,1),verbose=None)
+        turns = np.array([i[6] for i in minibatch])
+        
+        target = self.model.predict([states.reshape(-1,8,8,1),turns],verbose=None)
+        Qvalue = self.target_model.predict([next_states.reshape(-1,8,8,1),turns],verbose=None)
         for i in range(self.batch_size):
             if dones[i]:
-                target[i][actions[i]] = rewards[i]
+                target[i][actions[i]] = rewards[i] /100.0
             else:
-                target[i][actions[i]] = rewards[i] + self.gamma * np.amax(target_next[i][valid_actions[i]])
-        loss = self.model.train_on_batch(states.reshape(-1,8,8,1), target)
-        return loss  # 손실 값 반환
-    
+                target[i][actions[i]] = rewards[i] /100.0 + self.gamma * np.amax(Qvalue[i][valid_actions[i]])
+            self._InsertHashTable(states[i])
+        loss = self.model.train_on_batch([states.reshape(-1,8,8,1),turns], target)
+        for index in sorted(minibatch_indices, reverse=True):
+            del self.replay_buffer[index]
+        return loss
 
-    def BehaviorPolicy(self, env,state,valid_action):
-        q_values = self.model.predict(state.reshape(-1,8,8,1),verbose=None)[0][valid_action]
+    def BehaviorPolicy(self, env,state,turn,valid_action):
+        q_values = self.target_model.predict([state.reshape(-1,8,8,1),np.array([float(turn)])],verbose=None)[0][valid_action]
+        
         count = []
         for i in range(len(valid_action)):
             count.append(self.GetCount(env.simulateNextState(valid_action[i])))
@@ -96,24 +115,16 @@ class DQN:
             uct_values = q_values+ np.sqrt(2*np.log(np.sum(count))/(1+np.array(count)))
             return valid_action[np.argmax(uct_values)]
     
-    def EstimatePolicy(self, state , valid_action):
-        q_values = self.target_model.predict(state.reshape(-1,8,8,1),verbose=None)[0]
+    def EstimatePolicy(self, state ,turn, valid_action):
+        q_values = self.target_model.predict([state.reshape(-1,8,8,1),np.array([float(turn)])],verbose=None)[0]
         mask = np.zeros_like(q_values, dtype=bool)
         mask[valid_action] = True
         return valid_action[np.argmax(q_values[mask])]
     
-    def load(self, name):
-        self.model = load_model(name)
-        self.target_model = load_model(name)
-    
-    def save(self, name):
-        self.model.save(name)
-
-    def InsertBuffer(self, state, action, reward,next_states,done,valid_actions):
-        self._InsertHashTable(state)
+    def InsertBuffer(self, state, action, reward,next_states,done,valid_actions,turns):
         if len(self.replay_buffer) > self.maxBufferSize:
-            self.replay_buffer.popleft() 
-        self.replay_buffer.append([state, action, reward,next_states,done,valid_actions])
+            self.replay_buffer.pop(0)
+        self.replay_buffer.append([state, action, reward,next_states,done,valid_actions,turns])
 
     def GetCount(self, state):
         hash_value = self._Gethash(state)

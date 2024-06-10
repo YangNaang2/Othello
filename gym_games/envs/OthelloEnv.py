@@ -95,7 +95,6 @@ class OthelloEnv(gym.Env):
         self.Curplayer = 1
         self.blackSum = 2
         self.whiteSum = 2
-
         if self.metadata['render_modes'] == "human":
             self._init_render_gui()
         self.render()
@@ -111,6 +110,7 @@ class OthelloEnv(gym.Env):
             pygame.display.init()
             pygame.display.set_caption("Othello")
             self.window_surface = pygame.display.set_mode(self.window_size)
+            pygame.font.init()
         self.font = pygame.font.Font(None, 36)
         self.MouseX , self.MouseY = 0,0
         if self.clock is None:
