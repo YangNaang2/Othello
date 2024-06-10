@@ -76,7 +76,7 @@ class OthelloEnv(gym.Env):
             self.cell_size*8, 
             self.cell_size*(8+2) # +2 cells for showing score
         )
-        self.observation_space = spaces.MultiDiscrete([3] * 64)
+        self.observation_space = spaces.Box(low=0, high=2, shape=(64,), dtype=int)
         self.action_space = spaces.Discrete(8*8)
         self.boardImg = None
         self.whiteImg = None
@@ -233,7 +233,32 @@ class OthelloEnv(gym.Env):
             if(self.is_valid_action(i)):
                 actions.append(i)
         return actions
-    
+
+
+    def GetReward(self ,done):
+        reward = 0
+
+        if(done):
+            if self.blackSum == self.whiteSum:
+                reward = 0
+            elif ((self.Curplayer == 1) and (self.blackSum > self.whiteSum)) or ((self.Curplayer == 2) and (self.blackSum < self.whiteSum)):
+                reward = 1
+            else:
+                reward = -1
+        return reward
+
+
+    def GetReward(self,done):
+        if(done):
+            if(self.blackSum == self.whiteSum):
+                return 0
+            elif ((self.Curplayer ==1) and (self.blackSum>self.whiteSum)) or ((self.Curplayer ==2) and (self.blackSum<self.whiteSum)):
+                return 100
+            else:
+                return -100
+        else:
+            return (self.Curplayer==1) * (self.blackSum - self.whiteSum)
+
     def step(self, a):
         if(not self.metadata['autoplay']):
             while True:
@@ -248,20 +273,24 @@ class OthelloEnv(gym.Env):
                     break
         actions = self.get_valid_actions()
         if(not actions):
-            reward = 0
-            if(self.Curplayer==1):
-                reward = self.blackSum 
-            else:
-                reward = self.whiteSum 
-            return ( self.board, reward, True , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
+            return ( self.board, 0, True , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
         elif(a in actions):
             self.capture_action(a)
             player = self.Curplayer
             self.Curplayer = 3 - self.Curplayer
             actions = self.get_valid_actions()
             done = False
+            reward = 0
             if(not actions):
                 done = True
-            return ( self.board, 0, done , False, {'autoplay': self.metadata['autoplay'], 'turn':player, 'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum})
+                if(self.blackSum == self.whiteSum):
+                    reward =  0
+                elif ((player ==1) and (self.blackSum>self.whiteSum)) or ((player == 2) and (self.blackSum<self.whiteSum)):
+                    reward = 100
+                else:
+                    reward = -100
+            else:
+                reward = (player==1) * (self.blackSum - self.whiteSum)
+            return ( self.board, reward, done , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer, 'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum})
         return ( self.board, -100, False , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
        
