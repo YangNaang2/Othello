@@ -4,7 +4,7 @@ from os import path
 from typing import Optional
 import numpy as np
 import asyncio
-
+import copy
 
 import gymnasium as gym
 from gymnasium import Env, spaces
@@ -188,6 +188,49 @@ class OthelloEnv(gym.Env):
                         break
         return False
     
+    def simulateNextState(self,a):
+        tesboard = copy.deepcopy(self.board)
+        testBlackSum = self.blackSum
+        testWhiteSum = self.whiteSum
+        testBlackSumold = testBlackSum
+        testWhiteSumold = testWhiteSum
+        directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]
+        row, col = np.unravel_index(a, (8,8))
+        for dr, dc in directions:
+            r, c = row + dr, col + dc
+            find = False
+            while 0 <= r < 8 and 0 <= c < 8:
+                if tesboard[ 8*r+c] == 0:
+                    break
+                elif tesboard[ 8*r+c] != self.Curplayer:
+                    r, c = r + dr, c + dc
+                    find =  True 
+                else:
+                    if(find):
+                        r, c = r - dr, c - dc
+                        while ( r, c ) != (row, col):
+                            tesboard[8*r+c] = self.Curplayer
+                            if(self.Curplayer == 1):
+                                testBlackSum +=1
+                                testWhiteSum -=1
+                            else:
+                                testBlackSum -=1
+                                testWhiteSum +=1
+                            r, c = r - dr, c - dc
+                        break
+                    else:
+                        break
+        if(self.Curplayer == 1):
+            if(testBlackSumold != testBlackSum):
+                tesboard[a] = self.Curplayer
+                testBlackSum +=1     
+        else:
+            if(testWhiteSumold != testWhiteSum):
+                tesboard[a] = self.Curplayer
+                testWhiteSum +=1 
+        return tesboard
+
+
     def capture_action(self, a):
         blackSumold = self.blackSum
         whiteumold = self.whiteSum
@@ -226,7 +269,6 @@ class OthelloEnv(gym.Env):
                 self.board[a] = self.Curplayer
                 self.whiteSum +=1 
 
-
     def get_valid_actions(self):
         actions = []
         for i in range(0,8*8):
@@ -234,30 +276,6 @@ class OthelloEnv(gym.Env):
                 actions.append(i)
         return actions
 
-
-    def GetReward(self ,done):
-        reward = 0
-
-        if(done):
-            if self.blackSum == self.whiteSum:
-                reward = 0
-            elif ((self.Curplayer == 1) and (self.blackSum > self.whiteSum)) or ((self.Curplayer == 2) and (self.blackSum < self.whiteSum)):
-                reward = 1
-            else:
-                reward = -1
-        return reward
-
-
-    def GetReward(self,done):
-        if(done):
-            if(self.blackSum == self.whiteSum):
-                return 0
-            elif ((self.Curplayer ==1) and (self.blackSum>self.whiteSum)) or ((self.Curplayer ==2) and (self.blackSum<self.whiteSum)):
-                return 100
-            else:
-                return -100
-        else:
-            return (self.Curplayer==1) * (self.blackSum - self.whiteSum)
 
     def step(self, a):
         if(not self.metadata['autoplay']):
@@ -269,12 +287,22 @@ class OthelloEnv(gym.Env):
                 if(pygame.mouse.get_pressed()[0]):
                     row  = min(self.MouseY//self.cell_size, 8*8-1)
                     col  = self.MouseX//self.cell_size
+                    actions = self.get_valid_actions()
                     a = 8*row+col
-                    break
+                    if (not actions) or (a in actions):
+                        break
+
         actions = self.get_valid_actions()
-        if(not actions):
-            return ( self.board, 0, True , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
+        if(a is None) or (not actions):
+            self.Curplayer = 3 - self.Curplayer
+            actions = self.get_valid_actions()
+            done = False
+            if(not actions):
+                done = True
+            return ( self.board, 0, done , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
         elif(a in actions):
+            oldblacksum = self.blackSum
+            oldwhitesum = self.whiteSum
             self.capture_action(a)
             player = self.Curplayer
             self.Curplayer = 3 - self.Curplayer
@@ -290,7 +318,9 @@ class OthelloEnv(gym.Env):
                 else:
                     reward = -100
             else:
-                reward = (player==1) * (self.blackSum - self.whiteSum)
+                if(player==1):
+                    reward = (self.blackSum - oldblacksum) - (self.whiteSum - oldwhitesum)
+                else:
+                    reward =  (self.whiteSum - oldwhitesum) - (self.blackSum - oldblacksum)
             return ( self.board, reward, done , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer, 'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum})
-        return ( self.board, -100, False , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
        

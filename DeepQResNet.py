@@ -73,7 +73,7 @@ class DQN:
         rewards = np.array([i[2] for i in minibatch])
         next_states = np.array([i[3] for i in minibatch])
         dones = np.array([i[4] for i in minibatch])
-        valid_actions  =[i[5] for i in minibatch]
+        valid_actions = [i[5] for i in minibatch]
         target = self.model.predict(next_states.reshape(-1,8,8,1),verbose=None)
         target_next = self.target_model.predict(next_states.reshape(-1,8,8,1),verbose=None)
         for i in range(self.batch_size):
@@ -85,11 +85,11 @@ class DQN:
         return loss  # 손실 값 반환
     
 
-    def BehaviorPolicy(self, state,valid_action):
+    def BehaviorPolicy(self, env,state,valid_action):
         q_values = self.model.predict(state.reshape(-1,8,8,1),verbose=None)[0][valid_action]
         count = []
         for i in range(len(valid_action)):
-            count.append(self.GetCount(state,valid_action[i]))
+            count.append(self.GetCount(env.simulateNextState(valid_action[i])))
         if(sum(count)==0):
             return random.choice(valid_action)
         else:
@@ -109,13 +109,13 @@ class DQN:
         self.model.save_weights(name)
 
     def InsertBuffer(self, state, action, reward,next_states,done,valid_actions):
-        self._InsertHashTable(state,action)
+        self._InsertHashTable(state)
         if len(self.replay_buffer) > self.maxBufferSize:
             self.replay_buffer.popleft() 
         self.replay_buffer.append([state, action, reward,next_states,done,valid_actions])
 
-    def GetCount(self, state,action):
-        hash_value = self._Gethash(state,action)
+    def GetCount(self, state):
+        hash_value = self._Gethash(state)
         half_length = len(hash_value) // 2
         first_half = hash_value[:half_length]
         second_half = hash_value[half_length:]
@@ -131,15 +131,15 @@ class DQN:
         self.replay_buffer = []
         return buffer
 
-    def _Gethash(self, state,action):
+    def _Gethash(self, state):
         # 2차원 배열의 각 요소 값을 결합하여 하나의 문자열로 만듭니다.
-        combined_string = ''.join(map(str, state))+ str(action)
+        combined_string = ''.join(map(str, state))
         # 결합된 문자열에 대한 해시 값을 계산합니다.
         hash_value = hashlib.md5(combined_string.encode()).hexdigest()
         return hash_value
 
-    def _InsertHashTable(self, state,action):
-        hash_value = self._Gethash(state,action)
+    def _InsertHashTable(self, state):
+        hash_value = self._Gethash(state)
         half_length = len(hash_value) // 2
         first_half = hash_value[:half_length]
         second_half = hash_value[half_length:]
