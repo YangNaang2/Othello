@@ -95,6 +95,8 @@ class OthelloEnv(gym.Env):
         self.Curplayer = 1
         self.blackSum = 2
         self.whiteSum = 2
+        self.blackDone = False
+        self.whiteDone = False
         if self.metadata['render_modes'] == "human":
             self._init_render_gui()
         self.render()
@@ -276,8 +278,19 @@ class OthelloEnv(gym.Env):
                 actions.append(i)
         return actions
 
-
     def step(self, a):
+        if ((self.blackDone) and (self.Curplayer == 1)) or ((self.whiteDone) and (self.Curplayer == 2)):
+            self.Curplayer = 3 - self.Curplayer
+            actions = self.get_valid_actions()
+            done = False
+            if(not actions):
+                done = True
+                if(self.Curplayer == 1):
+                    self.blackDone = True
+                else:
+                    self.whiteDone = True
+            return ( self.board, 0, done , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
+
         if(not self.metadata['autoplay']):
             while True:
                 pygame.event.pump()
@@ -299,6 +312,10 @@ class OthelloEnv(gym.Env):
             done = False
             if(not actions):
                 done = True
+                if(self.Curplayer == 1):
+                    self.blackDone = True
+                else:
+                    self.whiteDone = True
             return ( self.board, 0, done , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
         elif(a in actions):
             oldblacksum = self.blackSum
@@ -311,6 +328,10 @@ class OthelloEnv(gym.Env):
             reward = 0
             if(not actions):
                 done = True
+                if(self.Curplayer == 1):
+                    self.blackDone = True
+                else:
+                    self.whiteDone = True
                 if(self.blackSum == self.whiteSum):
                     reward =  0
                 elif ((player ==1) and (self.blackSum>self.whiteSum)) or ((player == 2) and (self.blackSum<self.whiteSum)):
