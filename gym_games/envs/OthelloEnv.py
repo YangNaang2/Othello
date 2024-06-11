@@ -290,7 +290,7 @@ class OthelloEnv(gym.Env):
                 else:
                     self.whiteDone = True
             return ( self.board, 0, done , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer,'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum} ) 
-
+        
         if(not self.metadata['autoplay']):
             while True:
                 pygame.event.pump()
@@ -304,9 +304,9 @@ class OthelloEnv(gym.Env):
                     a = 8*row+col
                     if (not actions) or (a in actions):
                         break
-
+        
         actions = self.get_valid_actions()
-        if(a is None) or (not actions):
+        if not actions:
             self.Curplayer = 3 - self.Curplayer
             actions = self.get_valid_actions()
             done = False
@@ -344,4 +344,4 @@ class OthelloEnv(gym.Env):
                 else:
                     reward =  (self.whiteSum - oldwhitesum) - (self.blackSum - oldblacksum)
             return ( self.board, reward, done , False, {'autoplay': self.metadata['autoplay'], 'turn':self.Curplayer, 'action' : actions, 'blackSum':self.blackSum,'whiteSum':self.whiteSum})
-       
+        return
