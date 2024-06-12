@@ -1,1 +1,5 @@
-# 강화 학습을 위한 Othello Gym 인터페이스 구현
+# Othello 
+
+[![Othello](https://img.youtube.com/vi/c3Y2om59tgo/0.jpg)](https://www.youtube.com/watch?v=c3Y2om59tgo)
+
+
