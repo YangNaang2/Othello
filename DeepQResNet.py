@@ -105,7 +105,6 @@ class DQN:
 
     def BehaviorPolicy(self, env,state,turn,valid_action):
         q_values = self.target_model.predict([state.reshape(-1,8,8,1),np.array([float(turn)])],verbose=None)[0][valid_action]
-        
         count = []
         for i in range(len(valid_action)):
             count.append(self.GetCount(env.simulateNextState(valid_action[i])))
